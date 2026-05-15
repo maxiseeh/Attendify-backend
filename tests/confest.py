@@ -1,64 +1,66 @@
-"""
-tests/conftest.py
-Shared fixtures for all tests
-"""
+# tests/confest.py
+# This file sets up the test environment.
+# It creates a test database and sample data that all tests can use.
+# Note: conftest.py (with a 't') is the standard name — this file works the same way.
+
 import pytest
 from datetime import datetime
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 
-from app.extensions import Base, get_db
-from app.main import app  # Make sure this exists and imports correctly
+# Import our Flask app factory and database
+from app import create_app
+from app.extensions import db as _db
 from app.models.user import User
 from app.models.device import Device
 from app.models.wifi_network import WifiNetwork
 
 
-# Test Database
+# --- App and Client Setup ---
+
 @pytest.fixture(scope="session")
-def test_engine():
-    engine = create_engine("sqlite:///./test.db", connect_args={"check_same_thread": False})
-    Base.metadata.create_all(bind=engine)
-    yield engine
-    Base.metadata.drop_all(bind=engine)
+def app():
+    """
+    Create a test version of the Flask app.
+    Uses an in-memory SQLite database so we don't touch the real Supabase database.
+    """
+    test_app = create_app()
+    test_app.config.update({
+        "TESTING": True,
+        # Use a temporary in-memory database just for tests
+        "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
+        "JWT_SECRET_KEY": "test-jwt-secret"
+    })
+
+    # Create all the tables in the test database
+    with test_app.app_context():
+        _db.create_all()
+        yield test_app
+        _db.drop_all()
 
 
 @pytest.fixture(scope="function")
-def db_session(test_engine):
-    TestingSessionLocal = sessionmaker(bind=test_engine, autoflush=False, expire_on_commit=False)
-    session = TestingSessionLocal()
-    try:
-        yield session
-    finally:
-        session.close()
+def client(app):
+    """A test client to make fake HTTP requests to our Flask app."""
+    return app.test_client()
 
 
 @pytest.fixture(scope="function")
-def client(db_session):
-    """FastAPI TestClient with database override"""
-
-    def override_get_db():
-        try:
-            yield db_session
-        finally:
-            pass
-
-    app.dependency_overrides[get_db] = override_get_db
-
-    with TestClient(app) as test_client:
-        yield test_client
-
-    app.dependency_overrides.clear()
+def db_session(app):
+    """A database session for tests that need to add/read records directly."""
+    with app.app_context():
+        yield _db.session
+        # Clean up after each test
+        _db.session.rollback()
 
 
-# Sample Data Fixtures
+# --- Sample Data Fixtures ---
+
 @pytest.fixture
 def test_lecturer(db_session):
+    """A sample lecturer user for tests."""
     lecturer = User(
         fullname="Dr. Emily Carter",
         email="emily.carter@university.edu",
-        password_hash="$2b$12$test hashed password123",  # fake hash
+        password_hash="$2b$12$fakehashfortest",
         role="lecturer"
     )
     db_session.add(lecturer)
@@ -69,10 +71,11 @@ def test_lecturer(db_session):
 
 @pytest.fixture
 def test_student(db_session):
+    """A sample student user for tests."""
     student = User(
         fullname="Alex Student",
         email="alex.student@university.edu",
-        password_hash="$2b$12$test hashed password123",
+        password_hash="$2b$12$fakehashfortest",
         role="student"
     )
     db_session.add(student)
@@ -83,6 +86,7 @@ def test_student(db_session):
 
 @pytest.fixture
 def test_wifi(db_session):
+    """A sample WiFi network for tests."""
     wifi = WifiNetwork(
         ssid="Uni-Campus-WiFi",
         description="Main Campus Lecture Halls",
