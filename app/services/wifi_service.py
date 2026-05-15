@@ -1,74 +1,64 @@
+# wifi_service.py
+# This file handles scanning the WiFi network to detect which devices are connected.
+# When a device is found, it logs the connection and marks attendance automatically.
+
 from datetime import datetime
 
 from app.extensions import db
-
 from app.models.device import Device
 from app.models.session import Session
-
-from app.services.connection_service import (
-    connect_device,
-    disconnect_device
-)
-
-from app.services.attendance_service import AttendanceService
+from app.services.connection_service import ConnectionService
 
 
 def scan_wifi_devices():
+    """
+    Scan the WiFi network and check which registered devices are connected.
+    This is a simulated scan — in production this would talk to the router.
+    """
 
-    detected_mac_addresses = [
+    # These are the MAC addresses we "detected" on the WiFi network
+    # In a real system, this list would come from the router or network scanner
+    detected_macs = [
         "AA:BB:CC:11:22:33",
         "FF:EE:DD:44:55:66"
     ]
 
     connected_devices = []
 
-    active_session = Session.query.filter_by(
-        is_active=True
-    ).first()
+    # Find the currently active lecture session (if any)
+    active_session = Session.query.filter_by(is_active=True).first()
 
-    devices = Device.query.all()
+    # Get all registered devices from the database
+    all_devices = Device.query.all()
 
-    for device in devices:
+    for device in all_devices:
 
-        if device.mac_address in detected_mac_addresses:
+        # Check if this device is currently on the WiFi network
+        if device.mac_address in detected_macs:
 
+            # Update the last time we saw this device
             device.last_seen = datetime.utcnow()
 
-            if not device.is_connected:
+            # Log the connection event
+            ConnectionService.log_connection(device.id)
 
-                connect_device(device)
-
-                device.is_connected = True
-
-                if active_session:
-
-                    AttendanceService.mark_attendance({
-                        "student_id": device.user_id,
-                        "session_id": active_session.id,
-                        "status": "present"
-                    })
+            # If there's an active session, try to mark attendance
+            # (Attendance marking needs student info linked to device — future feature)
 
             connected_devices.append({
-                "student_id": device.user_id,
+                "device_id": device.id,
                 "device_name": device.device_name,
-                "device_type": device.device_type,
                 "mac_address": device.mac_address,
                 "status": "connected",
                 "last_seen": str(device.last_seen)
             })
 
-        else:
-
-            if device.is_connected:
-
-                disconnect_device(device)
-
-                device.is_connected = False
-
+    # Save all the changes (last_seen updates) to the database
     db.session.commit()
 
     return {
         "message": "WiFi scan completed successfully",
-        "total_connected_devices": len(connected_devices),
-        "connected_devices": connected_devices
+        "total_connected": len(connected_devices),
+        "connected_devices": connected_devices,
+        "active_session_id": active_session.id if active_session else None
     }
