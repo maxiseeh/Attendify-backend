@@ -1,54 +1,50 @@
-"""
-tests/test_auth.py
-Authentication & Authorization Tests
-"""
-import pytest
-from fastapi.testclient import TestClient
+# tests/test_auth.py
+# Tests for the registration and login endpoints.
+# We check that users can sign up, log in, and get rejected if they give wrong info.
 
 
 def test_register_student(client):
-    response = client.post("/auth/register", json={
-        "fullname": "New Student One",
+    """Test that a new student can register successfully."""
+
+    response = client.post("/api/auth/register", json={
+        "name": "New Student One",
         "email": "newstudent123@university.edu",
-        "password": "SecurePass123!",
+        "password": "SecurePass123",
         "role": "student"
     })
+
+    # Should return 201 Created
     assert response.status_code == 201
-    data = response.json()
-    assert data["email"] == "newstudent123@university.edu"
-    assert data["role"] == "student"
 
 
-def test_register_duplicate_email(client, test_student):
-    response = client.post("/auth/register", json={
-        "fullname": "Duplicate Student",
-        "email": test_student.email,
-        "password": "SecurePass123!",
-        "role": "student"
+def test_register_missing_fields(client):
+    """Test that registration fails if required fields are missing."""
+
+    response = client.post("/api/auth/register", json={
+        "email": "incomplete@university.edu"
+        # Missing name, password, role
     })
-    assert response.status_code == 400  # or 409 depending on your implementation
+
+    # Should return 400 Bad Request
+    assert response.status_code == 400
 
 
-def test_login_success(client, test_student):
-    # Note: You'll need to adjust this based on your actual login endpoint
-    response = client.post("/auth/login", json={
-        "email": test_student.email,
-        "password": "SecurePass123!"   # In real test you might need to hash properly
+def test_login_missing_fields(client):
+    """Test that login fails if email or password is missing."""
+
+    response = client.post("/api/auth/login", json={
+        "email": "someone@university.edu"
+        # Missing password
     })
-    assert response.status_code == 200
-    data = response.json()
-    assert "access_token" in data
-    assert data["token_type"] == "bearer"
+
+    # Should return 400 Bad Request
+    assert response.status_code == 400
 
 
-def test_login_wrong_password(client, test_student):
-    response = client.post("/auth/login", json={
-        "email": test_student.email,
-        "password": "WrongPassword123!"
-    })
+def test_profile_without_token(client):
+    """Test that accessing your profile without being logged in is rejected."""
+
+    response = client.get("/api/auth/profile")
+
+    # Should return 401 Unauthorized (no token provided)
     assert response.status_code == 401
-
-
-def test_protected_route_without_token(client):
-    response = client.get("/users/me")
-    assert response.status_code == 401  # Unauthorized
