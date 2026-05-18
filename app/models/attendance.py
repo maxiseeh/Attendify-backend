@@ -1,13 +1,6 @@
-"""
-app/models/attendance.py
-------------------------
-Attendance record for a student in a specific lecture session.
-"""
-
 import enum
 from sqlalchemy import Column, Integer, ForeignKey, Enum, UniqueConstraint, DateTime
 from sqlalchemy.orm import relationship
-
 
 from app.extensions import Base
 from app.models.base import CRUDMixin, TimestampMixin
@@ -15,58 +8,26 @@ from app.models.base import CRUDMixin, TimestampMixin
 
 class AttendanceStatus(str, enum.Enum):
     PRESENT = "present"
-    ABSENT  = "absent"
-    LATE    = "late"
+    ABSENT = "absent"
+    LATE = "late"
 
 
 class Attendance(CRUDMixin, TimestampMixin, Base):
-    """
-    Attendance for a student in one lecture session.
-    """
     __tablename__ = "attendance"
     __table_args__ = (
         UniqueConstraint("student_id", "session_id", name="uq_student_session"),
     )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    student_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    session_id = Column(Integer, ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False, index=True)
+    check_in = Column(DateTime, nullable=True)
+    check_out = Column(DateTime, nullable=True)
+    status = Column(Enum(AttendanceStatus), default=AttendanceStatus.ABSENT, nullable=False, index=True)
 
-    student_id = Column(
-        Integer, 
-        ForeignKey("users.id", ondelete="CASCADE"), 
-        nullable=False, 
-        index=True
-    )
+    student = relationship("User", back_populates="attendance_records", foreign_keys="Attendance.student_id")
+    session = relationship("Session", back_populates="attendance_records")
 
-    session_id = Column(
-        Integer, 
-        ForeignKey("sessions.id", ondelete="CASCADE"), 
-        nullable=False, 
-        index=True
-    )
-
-    check_in  = Column(DateTime, nullable=True)   # renamed from login_time
-    check_out = Column(DateTime, nullable=True)   # renamed from logout_time
-
-    status = Column(
-        Enum(AttendanceStatus), 
-        default=AttendanceStatus.ABSENT, 
-        nullable=False, 
-        index=True
-    )
-
-    # Relationships
-    student = relationship(
-        "User", 
-        back_populates="attendance_records",
-        foreign_keys="Attendance.student_id"
-    )
-
-    session = relationship(
-        "Session", 
-        back_populates="attendance_records"
-    )
-
-    # Business helpers
     def to_dict(self):
         return {
             "id": self.id,

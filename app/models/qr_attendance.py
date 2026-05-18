@@ -1,9 +1,3 @@
-"""
-app/models/qr_attendance.py
----------------------------
-QR Code based attendance as alternative / backup to WiFi-based attendance.
-"""
-
 from sqlalchemy import Column, Integer, DateTime, ForeignKey, String
 from sqlalchemy.orm import relationship
 
@@ -15,34 +9,13 @@ class QrAttendance(CRUDMixin, TimestampMixin, Base):
     __tablename__ = "qr_attendance"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-
-    student_id = Column(
-        Integer,
-        ForeignKey("users.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True
-    )
-
-    session_id = Column(
-        Integer,
-        ForeignKey("sessions.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True
-    )
-
+    student_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    session_id = Column(Integer, ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False, index=True)
     scanned_at = Column(DateTime, nullable=False)
-    qr_code    = Column(String(100), nullable=True)        # optional: store the actual code used
+    qr_code = Column(String(100), nullable=True)
 
-    # Relationships
-    student = relationship(
-        "User",
-        back_populates="qr_attendance",
-        foreign_keys="QrAttendance.student_id"
-    )
-
+    student = relationship("User", back_populates="qr_attendance", foreign_keys="QrAttendance.student_id")
     session = relationship("Session")
-
-    # ------------------------------------------------------------------
 
     def to_dict(self):
         return {

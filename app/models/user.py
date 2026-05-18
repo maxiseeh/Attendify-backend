@@ -1,12 +1,3 @@
-"""
-app/models/user.py
-------------------
-Represents a system user (student, lecturer, or admin).
-
-DBML fields: id, fullname, email, password_hash, created_at, updated_at
-App-level fields: role, is_active
-"""
-
 import enum
 from sqlalchemy import Column, Integer, String, Boolean, Enum
 from sqlalchemy.orm import relationship
@@ -28,11 +19,9 @@ class User(CRUDMixin, TimestampMixin, Base):
     fullname = Column(String(120), nullable=False)
     email = Column(String(150), unique=True, nullable=False, index=True)
     password_hash = Column(String(255), nullable=False)
-
     role = Column(Enum(UserRole), default=UserRole.STUDENT, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
 
-    # Lecture sessions created by this lecturer
     lecturer_sessions = relationship(
         "Session",
         back_populates="lecturer",

@@ -1,12 +1,3 @@
-"""
-app/models/device.py
---------------------
-A physical device that can connect to a monitored WiFi network.
-
-DBML fields: id, mac_address, device_name, device_type, verified, last_seen, created_at
-Note: Devices are standalone (no user_id FK). They are network-level entities.
-"""
-
 import enum
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, Enum
 from sqlalchemy.orm import relationship
@@ -28,20 +19,17 @@ class Device(CRUDMixin, TimestampMixin, Base):
     mac_address = Column(String(17), unique=True, nullable=False, index=True)
     device_name = Column(String(120), nullable=True)
     device_type = Column(Enum(DeviceType), nullable=True)
-    verified = Column(Boolean, default=False, nullable=False)   # DBML: verified
-    last_seen = Column(DateTime, nullable=True)                 # DBML: last_seen
+    verified = Column(Boolean, default=False, nullable=False)
+    last_seen = Column(DateTime, nullable=True)
 
-    # Relationships
     connection_logs = relationship(
         "ConnectionLog",
         back_populates="device",
         cascade="all, delete-orphan",
     )
 
-    # Business helpers
     @property
-    def is_auto_login_ready(self) -> bool:
-        """True when device is verified and has a MAC address."""
+    def is_auto_login_ready(self):
         return self.verified and bool(self.mac_address)
 
     def to_dict(self):
